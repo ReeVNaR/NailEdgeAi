@@ -247,4 +247,32 @@ def process_frame_route():
         return jsonify({'error': 'Server error'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Generate self-signed certificate if not exists
+    cert_path = 'cert.pem'
+    key_path = 'key.pem'
+    
+    if not (os.path.exists(cert_path) and os.path.exists(key_path)):
+        from OpenSSL import crypto
+        
+        # Generate key
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 2048)
+        
+        # Generate certificate
+        cert = crypto.X509()
+        cert.get_subject().CN = "localhost"
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(365*24*60*60)  # Valid for one year
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha256')
+        
+        # Save certificate and private key
+        with open(cert_path, "wb") as f:
+            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+        with open(key_path, "wb") as f:
+            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
+    
+    # Run with SSL
+    app.run(debug=True, host='0.0.0.0', ssl_context=(cert_path, key_path))
