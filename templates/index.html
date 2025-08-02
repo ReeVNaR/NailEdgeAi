@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nail Edge AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: #000;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .page {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-page {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            z-index: 2;
+        }
+
+        .camera-page {
+            background: #000;
+            z-index: 1;
+        }
+
+        .hidden {
+            transform: translateX(100%);
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            background: linear-gradient(45deg, #ff6b6b, #ff9f9f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+        }
+
+        .try-on-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ff9f9f);
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .try-on-btn:hover {
+            transform: scale(1.05);
+        }
+
+        #video {
+            display: none;
+        }
+
+        #output {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            z-index: 3;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 25px;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 3;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        .controls label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page home-page" id="homePage">
+        <h1 class="logo">Nail Edge AI</h1>
+        <button class="try-on-btn" onclick="startCamera()">Try On</button>
+    </div>
+
+    <div class="page camera-page hidden" id="cameraPage">
+        <button class="back-btn" onclick="goBack()">← Back</button>
+        <video id="video" autoplay></video>
+        <img id="output"/>
+        <div class="controls">
+            <button id="toggleBtn">Turn Filter: ON</button>
+            <label>
+                Nail Size
+                <input type="range" id="sizeSlider" min="20" max="80" value="40">
+            </label>
+            <label>
+                Rotation
+                <input type="range" id="rotationSlider" min="-90" max="90" value="0">
+            </label>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const output = document.getElementById('output');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const sizeSlider = document.getElementById('sizeSlider');
+        const rotationSlider = document.getElementById('rotationSlider');
+
+        let filterOn = true;
+
+        toggleBtn.addEventListener('click', () => {
+          filterOn = !filterOn;
+          toggleBtn.textContent = `Turn Filter: ${filterOn ? 'ON' : 'OFF'}`;
+        });
+
+        async function sendFrame() {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+
+          const frameData = canvas.toDataURL('image/jpeg');
+
+          const response = await fetch('/process_frame', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              frame: frameData,
+              filter: filterOn,
+              size: sizeSlider.value,
+              rotation: rotationSlider.value
+            })
+          });
+
+          const result = await response.json();
+          if (result.frame) {
+            output.src = 'data:image/jpeg;base64,' + result.frame;
+          }
+
+          requestAnimationFrame(sendFrame);
+        }
+
+        video.addEventListener('play', () => {
+          requestAnimationFrame(sendFrame);
+        });
+
+        function startCamera() {
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('cameraPage').classList.remove('hidden');
+            
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            }).then(stream => {
+                video.srcObject = stream;
+                video.play();
+            });
+        }
+
+        function goBack() {
+            document.getElementById('cameraPage').classList.add('hidden');
+            document.getElementById('homePage').classList.remove('hidden');
+            
+            // Stop all video streams
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+            }
+        }
+    </script>
+</body>
+</html>
