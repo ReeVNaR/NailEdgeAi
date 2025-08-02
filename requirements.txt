@@ -1,5 +1,6 @@
-flask
-mediapipe
-opencv-python-headless
-numpy
-gunicorn
+Flask>=2.0.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+numpy>=1.24.0
+pyOpenSSL>=23.2.0
+Werkzeug>=2.3.7

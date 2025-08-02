@@ -18,9 +18,10 @@ app = Flask(__name__, static_url_path='/static')
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
     static_image_mode=False,
-    max_num_hands=2,  # Changed from 1 to 2
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
+    max_num_hands=2,
+    min_detection_confidence=0.7,  # Increased for better stability
+    min_tracking_confidence=0.5,
+    model_complexity=1  # Add model complexity setting
 )
 
 FINGERTIP_INDICES = [4, 8, 12, 16, 20]
